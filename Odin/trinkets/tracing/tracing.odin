@@ -1,5 +1,6 @@
 package tracing
 
+import "base:runtime"
 import "core:fmt"
 import "core:slice"
 import "core:testing"
@@ -8,6 +9,7 @@ import "core:os"
 
 trace_explicit :: proc(fd: os.Handle,
                        handle: string, level: int,
+                       location: runtime.Source_Code_Location,
                        format: string, args: ..any) {
     @(static) time_buf_mdy: [time.MIN_YY_DATE_LEN]u8
     @(static) time_buf_hms: [time.MIN_HMS_LEN]u8
@@ -16,8 +18,9 @@ trace_explicit :: proc(fd: os.Handle,
     time.time_to_string_hms(now, time_buf_hms[:])
 
     fmt.fprintf(fd,
-                "[%s %s] %s %d    ",
-                time_buf_mdy, time_buf_hms, handle, level)
+                "[%s %s] %s %d    %s ",
+                time_buf_mdy, time_buf_hms, handle, level,
+                location.procedure)
     fmt.fprintfln(fd, format, ..args)
 }
 
@@ -46,6 +49,7 @@ deinit_tracing :: proc(tc: ^TraceContext) {
 
 trace_with_context :: proc(tc: ^TraceContext,
                            level: int,
+                           location: runtime.Source_Code_Location,
                            format: string,
                            args: ..any) {
     emit := false
@@ -57,16 +61,18 @@ trace_with_context :: proc(tc: ^TraceContext,
     }
 
     if emit {
-        trace_explicit(tc.fd, tc.handle, level, format, ..args)
+        trace_explicit(tc.fd, tc.handle, level, location, format, ..args)
     }
 }
 
-t0 :: proc(tc: ^TraceContext, format: string, args: ..any) {
-    trace_with_context(tc, 0, format, ..args)
+t0 :: proc(tc: ^TraceContext, format: string, args: ..any,
+           location := #caller_location) {
+    trace_with_context(tc, 0, location, format, ..args)
 }
 
-t1 :: proc(tc: ^TraceContext, format: string, args: ..any) {
-    trace_with_context(tc, 1, format, ..args)
+t1 :: proc(tc: ^TraceContext, format: string, args: ..any,
+           location := #caller_location) {
+    trace_with_context(tc, 1, location, format, ..args)
 }
 
 // --- begin tests ------------------------------------------------------------------
@@ -77,7 +83,8 @@ t1 :: proc(tc: ^TraceContext, format: string, args: ..any) {
 test_trace_explicit :: proc(_: ^testing.T) {
     fd := os.stdout
     defer os.close(fd)
-    trace_explicit(fd, "handle", 3, "%s's favorite number is %d", "Susan", 2)
+    trace_explicit(fd, "handle", 3, #location(),
+                   "%s's favorite number is %d", "Susan", 2)
 }
 
 @(test)
