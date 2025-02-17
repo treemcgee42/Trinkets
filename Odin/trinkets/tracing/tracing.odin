@@ -6,6 +6,70 @@ import "core:slice"
 import "core:testing"
 import "core:time"
 import "core:os"
+import "core:strconv"
+import "core:strings"
+
+FILTER_ACTIVE := false
+FILTER: TraceFilter
+
+parse_trace_env_var :: proc(
+    value: string
+) -> (handleToLevels: map[string][dynamic]int) {
+    handleToLevels = make(map[string][dynamic]int)
+    if (len(value) == 0) {
+        return
+    }
+
+    components := strings.split(value, ",")
+    defer delete(components)
+    for component in components {
+        sp := strings.split(component, "/")
+        defer delete(sp)
+        assert(len(sp) == 2)
+        handle := sp[0]
+        levels := make([dynamic]int)
+        handleToLevels[handle] = levels
+
+        sp_levels := strings.split(sp[1], "")
+        defer delete(sp_levels)
+        for level_st in sp_levels {
+            level, ok := strconv.parse_int(level_st)
+            assert(ok)
+            append(&handleToLevels[handle], level)
+        }
+    }
+
+    return
+}
+
+TraceFilter :: struct {
+    handleToLevels: map[string][dynamic]int,
+}
+
+init_filter :: proc() {
+    if FILTER_ACTIVE {
+        return
+    }
+    trace_env_var := os.get_env("TRACE")
+    defer delete(trace_env_var)
+    handleToLevels := parse_trace_env_var(trace_env_var)
+    FILTER = TraceFilter {
+        handleToLevels = handleToLevels,
+    }
+    FILTER_ACTIVE = true
+}
+
+deinit_filter :: proc() {
+    if !FILTER_ACTIVE {
+        return
+    }
+    for key, value in FILTER.handleToLevels {
+        delete(value)
+        delete_key(&FILTER.handleToLevels, key)
+    }
+    delete(FILTER.handleToLevels)
+    FILTER_ACTIVE = false
+}
 
 trace_explicit :: proc(fd: os.Handle,
                        handle: string, level: int,
@@ -27,24 +91,34 @@ trace_explicit :: proc(fd: os.Handle,
 TraceContext :: struct {
     fd: os.Handle,
     handle: string,
-    enabled_levels: [dynamic]int,
 }
 
 init_tracing :: proc(handle: string,
-                     default_enabled_levels := []int{0},
                      fd: os.Handle = os.stdout) -> TraceContext
 {
-    // TODO: check env vars
-    enabled_levels := slice.clone_to_dynamic(default_enabled_levels)
+    init_filter()
     return TraceContext {
         fd = fd,
         handle = handle,
-        enabled_levels = enabled_levels,
     }
 }
 
 deinit_tracing :: proc(tc: ^TraceContext) {
-    delete(tc.enabled_levels)
+    deinit_filter()
+}
+
+should_trace :: proc(ctx: ^TraceContext, level: int) -> bool {
+    enabledLevels, ok := FILTER.handleToLevels[ctx.handle]
+    if !ok {
+        return false
+    }
+
+    for enabledLevel in enabledLevels {
+        if level == enabledLevel {
+            return true
+        }
+    }
+    return false
 }
 
 trace_with_context :: proc(tc: ^TraceContext,
@@ -52,15 +126,7 @@ trace_with_context :: proc(tc: ^TraceContext,
                            location: runtime.Source_Code_Location,
                            format: string,
                            args: ..any) {
-    emit := false
-    for enabled_level in tc.enabled_levels {
-        if level == enabled_level {
-            emit = true
-            break
-        }
-    }
-
-    if emit {
+    if should_trace(tc, level) {
         trace_explicit(tc.fd, tc.handle, level, location, format, ..args)
     }
 }
@@ -75,28 +141,45 @@ t1 :: proc(tc: ^TraceContext, format: string, args: ..any,
     trace_with_context(tc, 1, location, format, ..args)
 }
 
-// --- begin tests ------------------------------------------------------------------
-// These aren't the most useful since the test runner doesn't play well with printing
-// to stdout.
-
-@(test)
-test_trace_explicit :: proc(_: ^testing.T) {
-    fd := os.stdout
-    defer os.close(fd)
-    trace_explicit(fd, "handle", 3, #location(),
-                   "%s's favorite number is %d", "Susan", 2)
+tassert :: proc(tc: ^TraceContext, val: bool, format: string, args: ..any,
+                location := #caller_location) {
+    if !val {
+        trace_explicit(tc.fd, tc.handle, 0, location, format, ..args)
+        assert(false, loc=location)
+    }
 }
 
+// --- begin tests ------------------------------------------------------------------
+
 @(test)
-test_trace_with_context :: proc(_: ^testing.T) {
-    tc := init_tracing("TestTraceWithContext")
-    defer deinit_tracing(&tc)
+test_parse_trace_env_var :: proc(_: ^testing.T) {
+    handleToLevels := parse_trace_env_var("Foo/12,Bar/0,Baz/928")
+    defer {
+        for key, value in handleToLevels {
+            delete(value)
+            delete_key(&handleToLevels, key)
+        }
+        delete(handleToLevels)
+    }
 
-    t0(&tc, "Should be emitted")
-    t1(&tc, "Should NOT be emitted")
+    assert(len(handleToLevels) == 3)
 
-    append(&tc.enabled_levels, 1)
-    t1(&tc, "Should be emitted")
+    assert("Baz" in handleToLevels)
+
+    assert("Foo" in handleToLevels)
+    assert(len(handleToLevels["Foo"]) == 2)
+    assert(handleToLevels["Foo"][0] == 1)
+    assert(handleToLevels["Foo"][1] == 2)
+
+    assert("Bar" in handleToLevels)
+    assert(len(handleToLevels["Bar"]) == 1)
+    assert(handleToLevels["Bar"][0] == 0)
+
+    assert("Baz" in handleToLevels)
+    assert(len(handleToLevels["Baz"]) == 3)
+    assert(handleToLevels["Baz"][0] == 9)
+    assert(handleToLevels["Baz"][1] == 2)
+    assert(handleToLevels["Baz"][2] == 8)
 }
 
 // --- end tests --------------------------------------------------------------------
