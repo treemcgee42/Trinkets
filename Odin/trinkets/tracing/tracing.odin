@@ -26,7 +26,7 @@ parse_trace_env_var :: proc(
         sp := strings.split(component, "/")
         defer delete(sp)
         assert(len(sp) == 2)
-        handle := sp[0]
+        handle := strings.clone(sp[0])
         levels := make([dynamic]int)
         handleToLevels[handle] = levels
 
@@ -63,11 +63,13 @@ deinit_filter :: proc() {
     if !FILTER_ACTIVE {
         return
     }
+
     for key, value in FILTER.handleToLevels {
+        delete(key)
         delete(value)
-        delete_key(&FILTER.handleToLevels, key)
     }
     delete(FILTER.handleToLevels)
+
     FILTER_ACTIVE = false
 }
 
@@ -156,8 +158,8 @@ test_parse_trace_env_var :: proc(_: ^testing.T) {
     handleToLevels := parse_trace_env_var("Foo/12,Bar/0,Baz/928")
     defer {
         for key, value in handleToLevels {
+            delete(key)
             delete(value)
-            delete_key(&handleToLevels, key)
         }
         delete(handleToLevels)
     }
@@ -180,6 +182,13 @@ test_parse_trace_env_var :: proc(_: ^testing.T) {
     assert(handleToLevels["Baz"][0] == 9)
     assert(handleToLevels["Baz"][1] == 2)
     assert(handleToLevels["Baz"][2] == 8)
+}
+
+@(test)
+test_mem :: proc(_: ^testing.T) {
+    os.set_env("TRACE", "Main/01")
+    tc := init_tracing("Main")
+    deinit_tracing(&tc)
 }
 
 // --- end tests --------------------------------------------------------------------
