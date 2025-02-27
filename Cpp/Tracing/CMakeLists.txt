@@ -11,6 +11,12 @@ add_executable(test_basic Tests/Basic.c)
 target_include_directories(test_basic PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(test_basic PRIVATE tracing)
 
+install(FILES Tracing.h DESTINATION ${CMAKE_SOURCE_DIR}/../Include/Tracing)
+install(TARGETS tracing
+    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/../Lib
+    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/../Lib
+)
+
 add_custom_target(test
     COMMAND test_basic
     DEPENDS test_basic

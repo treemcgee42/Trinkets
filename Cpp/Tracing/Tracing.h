@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 
 struct TraceContext {
@@ -22,3 +26,7 @@ trace_with_context(struct TraceContext* tc,
   do { \
     trace_with_context(tc, 0, __func__, format, ##__VA_ARGS__); \
   } while (0)
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
