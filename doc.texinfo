@@ -1,0 +1,87 @@
+\input texinfo
+@settitle Trinkets 0.1
+
+@copying
+This is a manual for the Trinkets library collection, version 0.1.
+
+Copyright @copyright{} 2025 Varun Malladi.
+@end copying
+
+@ifnottex
+@node Top
+@top Trinkets 0.1
+This is a manual for the Trinkets library collection, version 0.1.
+@end ifnottex
+
+@heading About
+
+Trinkets was born when I realized that I was writing the same sort of
+library for multiple languages. For example, I like to have tracing
+facilities in nearly all of my programs. Instead of scattering these
+utility libraries across multiple repositories, I decided to collect
+them in a single place: here.
+
+A nice side goal is to maintain a unified-ish API. That will allow
+Trinket library code to be understood regardless of what language it
+appears in.
+
+@menu
+* Test::                               Unit testing frameworks
+* Tracing::                            Tracing facilities
+@end menu
+
+
+
+@node Test
+@chapter Test
+
+Unit testing frameworks.
+
+@menu
+* C/C++: Test for C/C++.               C/C++ unit testing framework
+@end menu
+
+@include Cpp/Test/doc.texinfo
+
+
+
+
+@node Tracing
+@chapter Tracing
+
+Traces print formatted messages. The idea is that they should remain
+in the code, but have their behavior controllable via something like
+an environment variable. That way, you can control which traces are
+emitted.
+
+To support this, we have two key concepts:
+@itemize @bullet{}
+@item
+@emph{Handle}. This is a string which should be used to group together
+related traces. You could have a handle per file, share a handle
+across multiple related files, or even have multiple handles in a
+single file.  When a handle is disabled, no traces associated with
+that handle will be emitted.
+
+@item
+@emph{Level}. This is a number, 0-9, associated with each trace. It
+provides even finer control than handles over which traces are
+emitted. For a trace to be emitted, both its handle and level must be
+emitted. For example, a user could trace frequently-called code at
+level 9 and less frequently-called code at level 0.
+@end itemize
+
+@menu
+* C/C++: Tracing for C/C++.             C/C++ tracing
+* Odin: Tracing for Odin.               Odin tracing
+@end menu
+
+@node Tracing for C/C++
+@section C/C++
+TODO
+
+@node Tracing for Odin
+@section Odin
+TODO
+
+@bye

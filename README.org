@@ -1,5 +1,0 @@
-
-This is a collection of personal "libraries" across various languages.  I often find
-myself reimplementing some library when writing a program in a new language, e.g. a
-tracing library. So I thought it would be a good idea to collect such implementations
-of such libraries in one place, trying to keep the API consistent in spirit.

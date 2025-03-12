@@ -1,0 +1,76 @@
+@comment v0.1
+
+@node Test for C/C++
+@section C/C++
+
+@heading Philosophy
+
+Simple and unsurprising are the primary design objectives. This has
+limited the feature scope. Many robust C++ testing libraries exist
+which provide rich features, such as Google test, catch2, and doctest.
+
+The following decisions demonstrate our design objectives:
+
+@itemize @bullet{}
+@item
+@emph{No execution framework.} There isn't a standard way to compile
+the tests into an executable and run them. It is up to the user to
+define this abstraction for themselves.
+
+@item
+@emph{No automatic test function generation or registration.} Any user
+defined function can be a test. To run the test, the user must call it
+manually.
+@end itemize
+
+@heading Example
+
+@example C
+void testFoo( struct Tm42_TestContext * ctx ) @{
+    TM42_BEGIN_TEST( "a test about foo" );
+
+    TM42_TEST_ASSERT( ctx, 1 + 1 == 2 );
+
+    TM42_END_TEST();
+@}
+@end example
+
+@subheading Integration
+
+Here are some suggestions for integrating this into your codebase:
+
+@itemize @bullet{}
+@item
+You can define tests next to the code it tests.
+
+@item
+You can guard the inclusion of the test header and compilation of
+the test functions behind a compilation flag (e.g. behind an
+@code{#ifdef COMPILE_TESTS}).
+
+@item
+Taking the above a step further, if you are developing an executable
+you can define a ``test main'' function which is compiled when the
+compile flag is defined instead of the usual main function.
+
+@end itemize
+
+@heading API
+
+@deffn Macro TM42_BEGIN_TEST description
+Call this at the very beginning of the test function. The expansion
+will print the test function and description when starting the test.
+@end deffn
+
+@deffn Macro TM42_END_TEST
+Call this at the end of the test, right before any teardown logic.  A
+failed test assertion will jump to this point, so teardown logic can
+be included after this call, and will run whether the test passes or
+fails.
+@end deffn
+
+@deffn Macro TM42_TEST_ASSERT ctx cond
+If @code{cond} is true, continue on. Otherwise, mark the failure in
+the test context @code{ctx} and jump to the failure handler generated
+via the @code{TM42_END_TEST} macro.
+@end deffn
