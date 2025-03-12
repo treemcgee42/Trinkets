@@ -27,6 +27,14 @@ trace_with_context(struct TraceContext* tc,
     trace_with_context(tc, 0, __func__, format, ##__VA_ARGS__); \
   } while (0)
 
+#define tassert(tc, cond, format, ...) \
+  do { \
+    if (!(cond)) {                                                \
+      trace_with_context(tc, 0, __func__, format, ##__VA_ARGS__); \
+      exit(1); \
+    } \
+  } while (0)
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
